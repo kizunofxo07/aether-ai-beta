@@ -14,7 +14,138 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      character_memory: {
+        Row: {
+          character_id: string
+          created_at: string
+          fact: string
+          id: string
+          source_session: string | null
+        }
+        Insert: {
+          character_id: string
+          created_at?: string
+          fact: string
+          id?: string
+          source_session?: string | null
+        }
+        Update: {
+          character_id?: string
+          created_at?: string
+          fact?: string
+          id?: string
+          source_session?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "character_memory_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      characters: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          description: string
+          greeting: string
+          id: string
+          is_official: boolean
+          name: string
+          system_prompt: string
+          tags: string[]
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          description?: string
+          greeting?: string
+          id?: string
+          is_official?: boolean
+          name: string
+          system_prompt: string
+          tags?: string[]
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          description?: string
+          greeting?: string
+          id?: string
+          is_official?: boolean
+          name?: string
+          system_prompt?: string
+          tags?: string[]
+        }
+        Relationships: []
+      }
+      conversations: {
+        Row: {
+          character_id: string
+          created_at: string
+          id: string
+          session_id: string
+          title: string | null
+        }
+        Insert: {
+          character_id: string
+          created_at?: string
+          id?: string
+          session_id: string
+          title?: string | null
+        }
+        Update: {
+          character_id?: string
+          created_at?: string
+          id?: string
+          session_id?: string
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          role: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          role: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
