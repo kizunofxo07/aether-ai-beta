@@ -49,38 +49,64 @@ export type Database = {
       characters: {
         Row: {
           avatar_url: string | null
+          category: string
+          censorship_level: Database["public"]["Enums"]["censorship_level"]
           created_at: string
           description: string
           greeting: string
           id: string
           is_official: boolean
+          is_owner_official: boolean
+          is_remix_of: string | null
           name: string
+          owner_id: string | null
           system_prompt: string
           tags: string[]
+          visibility: Database["public"]["Enums"]["bot_visibility"]
         }
         Insert: {
           avatar_url?: string | null
+          category?: string
+          censorship_level?: Database["public"]["Enums"]["censorship_level"]
           created_at?: string
           description?: string
           greeting?: string
           id?: string
           is_official?: boolean
+          is_owner_official?: boolean
+          is_remix_of?: string | null
           name: string
+          owner_id?: string | null
           system_prompt: string
           tags?: string[]
+          visibility?: Database["public"]["Enums"]["bot_visibility"]
         }
         Update: {
           avatar_url?: string | null
+          category?: string
+          censorship_level?: Database["public"]["Enums"]["censorship_level"]
           created_at?: string
           description?: string
           greeting?: string
           id?: string
           is_official?: boolean
+          is_owner_official?: boolean
+          is_remix_of?: string | null
           name?: string
+          owner_id?: string | null
           system_prompt?: string
           tags?: string[]
+          visibility?: Database["public"]["Enums"]["bot_visibility"]
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "characters_is_remix_of_fkey"
+            columns: ["is_remix_of"]
+            isOneToOne: false
+            referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       conversations: {
         Row: {
@@ -89,6 +115,7 @@ export type Database = {
           id: string
           session_id: string
           title: string | null
+          user_id: string | null
         }
         Insert: {
           character_id: string
@@ -96,6 +123,7 @@ export type Database = {
           id?: string
           session_id: string
           title?: string | null
+          user_id?: string | null
         }
         Update: {
           character_id?: string
@@ -103,6 +131,7 @@ export type Database = {
           id?: string
           session_id?: string
           title?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -146,15 +175,171 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          background_color: string
+          background_image_url: string | null
+          created_at: string
+          description: string
+          display_name: string
+          id: string
+          is_public: boolean
+          language_preference: string
+          parental_enabled: boolean
+          parental_password_hash: string | null
+          parental_phone: string | null
+          parental_phone_verified: boolean
+          plan: Database["public"]["Enums"]["user_plan"]
+          translation_enabled: boolean
+          updated_at: string
+          user_id: string
+          username: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          background_color?: string
+          background_image_url?: string | null
+          created_at?: string
+          description?: string
+          display_name?: string
+          id?: string
+          is_public?: boolean
+          language_preference?: string
+          parental_enabled?: boolean
+          parental_password_hash?: string | null
+          parental_phone?: string | null
+          parental_phone_verified?: boolean
+          plan?: Database["public"]["Enums"]["user_plan"]
+          translation_enabled?: boolean
+          updated_at?: string
+          user_id: string
+          username: string
+        }
+        Update: {
+          avatar_url?: string | null
+          background_color?: string
+          background_image_url?: string | null
+          created_at?: string
+          description?: string
+          display_name?: string
+          id?: string
+          is_public?: boolean
+          language_preference?: string
+          parental_enabled?: boolean
+          parental_password_hash?: string | null
+          parental_phone?: string | null
+          parental_phone_verified?: boolean
+          plan?: Database["public"]["Enums"]["user_plan"]
+          translation_enabled?: boolean
+          updated_at?: string
+          user_id?: string
+          username?: string
+        }
+        Relationships: []
+      }
+      remix_requests: {
+        Row: {
+          character_id: string
+          created_at: string
+          id: string
+          message: string
+          owner_id: string | null
+          requester_id: string
+          status: string
+        }
+        Insert: {
+          character_id: string
+          created_at?: string
+          id?: string
+          message?: string
+          owner_id?: string | null
+          requester_id: string
+          status?: string
+        }
+        Update: {
+          character_id?: string
+          created_at?: string
+          id?: string
+          message?: string
+          owner_id?: string | null
+          requester_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "remix_requests_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_content: {
+        Row: {
+          html: string
+          id: string
+          slug: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          html?: string
+          id?: string
+          slug: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          html?: string
+          id?: string
+          slug?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_staff: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "owner" | "admin" | "moderator" | "staff" | "user"
+      bot_visibility: "public" | "unlisted" | "private"
+      censorship_level: "none" | "light" | "moderate" | "high" | "higher"
+      user_plan: "free" | "nether"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -281,6 +466,11 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["owner", "admin", "moderator", "staff", "user"],
+      bot_visibility: ["public", "unlisted", "private"],
+      censorship_level: ["none", "light", "moderate", "high", "higher"],
+      user_plan: ["free", "nether"],
+    },
   },
 } as const
