@@ -1,18 +1,23 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
-import { ArrowLeft, Send, Sparkles, Brain } from "lucide-react";
+import { ArrowLeft, Send, Sparkles, Brain, Pencil } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { getSessionId } from "@/lib/session";
+import { useAuth } from "@/lib/auth";
+import { getOpenAIKey } from "@/lib/byok";
+import { translate, getLang, getTranslateEnabled, onLangChange } from "@/lib/i18n";
 import { toast } from "sonner";
 
-type Character = { id: string; name: string; description: string; avatar_url: string | null; greeting: string };
-type Msg = { role: "user" | "assistant"; content: string };
+type Character = { id: string; name: string; description: string; avatar_url: string | null; greeting: string; owner_id: string | null; is_owner_official: boolean; visibility: string };
+type Msg = { role: "user" | "assistant"; content: string; translated?: string };
 
 const Chat = () => {
   const { characterId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [character, setCharacter] = useState<Character | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -24,7 +29,7 @@ const Chat = () => {
   useEffect(() => {
     if (!characterId) return;
     (async () => {
-      const { data: c } = await supabase.from("characters").select("*").eq("id", characterId).single();
+      const { data: c } = await supabase.from("characters").select("*").eq("id", characterId).maybeSingle();
       if (!c) { navigate("/"); return; }
       setCharacter(c as Character);
 
@@ -32,14 +37,16 @@ const Chat = () => {
       setMemoryCount(count ?? 0);
 
       const sessionId = getSessionId();
-      const { data: existing } = await supabase
-        .from("conversations").select("id").eq("character_id", characterId).eq("session_id", sessionId)
-        .order("created_at", { ascending: false }).limit(1).maybeSingle();
+      let convQuery = supabase.from("conversations").select("id").eq("character_id", characterId);
+      if (user) convQuery = convQuery.eq("user_id", user.id);
+      else convQuery = convQuery.eq("session_id", sessionId).is("user_id", null);
+      const { data: existing } = await convQuery.order("created_at", { ascending: false }).limit(1).maybeSingle();
 
       let convId = existing?.id;
       if (!convId) {
         const { data: created } = await supabase.from("conversations")
-          .insert({ character_id: characterId, session_id: sessionId, title: c.name }).select("id").single();
+          .insert({ character_id: characterId, session_id: sessionId, title: c.name, user_id: user?.id ?? null })
+          .select("id").single();
         convId = created!.id;
       }
       setConversationId(convId!);
@@ -47,12 +54,26 @@ const Chat = () => {
       const { data: msgs } = await supabase.from("messages").select("role,content")
         .eq("conversation_id", convId).order("created_at", { ascending: true });
       const list = (msgs as Msg[]) ?? [];
-      if (list.length === 0) {
-        list.push({ role: "assistant", content: c.greeting });
-      }
+      if (list.length === 0) list.push({ role: "assistant", content: c.greeting });
       setMessages(list);
     })();
-  }, [characterId, navigate]);
+  }, [characterId, navigate, user]);
+
+  // re-translate on lang change
+  useEffect(() => {
+    const run = async () => {
+      if (!getTranslateEnabled() || getLang() === "en") {
+        setMessages((m) => m.map((x) => ({ ...x, translated: undefined })));
+        return;
+      }
+      const out = await Promise.all(messages.map(async (m) => ({ ...m, translated: await translate(m.content) })));
+      setMessages(out);
+    };
+    const off = onLangChange(run);
+    run();
+    return () => { off(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages.length]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -67,14 +88,16 @@ const Chat = () => {
 
     try {
       const { data, error } = await supabase.functions.invoke("chat", {
-        body: { conversationId, characterId, sessionId: getSessionId(), userMessage: text },
+        body: { conversationId, characterId, sessionId: getSessionId(), userMessage: text, openaiKey: getOpenAIKey() },
       });
       if (error) throw error;
       if (data?.error) {
         toast.error(data.error);
         setMessages((m) => m.slice(0, -1));
       } else {
-        setMessages((m) => [...m.slice(0, -1), { role: "assistant", content: data.reply }]);
+        let translated: string | undefined;
+        if (getTranslateEnabled() && getLang() !== "en") translated = await translate(data.reply);
+        setMessages((m) => [...m.slice(0, -1), { role: "assistant", content: data.reply, translated }]);
         setMemoryCount((c) => c + 1);
       }
     } catch (e: any) {
@@ -87,54 +110,62 @@ const Chat = () => {
 
   if (!character) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
 
+  const canEdit = user && character.owner_id === user.id;
+
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="border-b border-border/50 backdrop-blur-md sticky top-0 z-10 bg-background/70">
-        <div className="container flex items-center gap-3 py-4">
+      <header className="border-b border-border sticky top-0 z-10 bg-background">
+        <div className="container max-w-4xl flex items-center gap-3 py-3">
           <Link to="/"><Button variant="ghost" size="icon"><ArrowLeft className="h-5 w-5" /></Button></Link>
-          <div className="h-11 w-11 rounded-xl gradient-bg flex items-center justify-center font-bold text-primary-foreground overflow-hidden">
+          <div className={`h-10 w-10 rounded-md bg-secondary flex items-center justify-center font-bold overflow-hidden ${character.is_owner_official ? "gold-outline" : ""}`}>
             {character.avatar_url ? <img src={character.avatar_url} className="h-full w-full object-cover" alt="" /> : character.name.charAt(0)}
           </div>
           <div className="flex-1 min-w-0">
-            <h1 className="font-bold truncate">{character.name}</h1>
+            <h1 className="font-semibold truncate flex items-center gap-1.5">{character.name}{character.is_owner_official && <span className="text-gold text-xs">★</span>}</h1>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <Brain className="h-3 w-3" /> Collective memory: {memoryCount} {memoryCount === 1 ? "fact" : "facts"}
+              <Brain className="h-3 w-3" /> {memoryCount} {memoryCount === 1 ? "fact" : "facts"} learned
             </p>
           </div>
+          {canEdit && (
+            <Link to={`/edit/${character.id}`}><Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /></Button></Link>
+          )}
         </div>
       </header>
 
       <main ref={scrollRef} className="flex-1 overflow-y-auto">
-        <div className="container max-w-3xl py-6 space-y-4">
+        <div className="container max-w-3xl py-6 space-y-3">
           {messages.map((m, i) => (
             <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-              <div className={`max-w-[85%] rounded-2xl px-4 py-3 ${
-                m.role === "user"
-                  ? "gradient-bg text-primary-foreground"
-                  : "card-gradient border border-border/50 shadow-card"
+              <div className={`max-w-[85%] rounded-lg px-4 py-2.5 ${
+                m.role === "user" ? "bg-primary text-primary-foreground" : "bg-card border border-border"
               }`}>
-                <p className="whitespace-pre-wrap text-sm leading-relaxed">{m.content}</p>
+                <div className="prose prose-sm prose-invert max-w-none text-sm leading-relaxed [&_p]:my-1 whitespace-pre-wrap">
+                  <ReactMarkdown>{m.translated ?? m.content}</ReactMarkdown>
+                </div>
               </div>
             </div>
           ))}
         </div>
       </main>
 
-      <footer className="border-t border-border/50 bg-background/70 backdrop-blur-md sticky bottom-0">
-        <div className="container max-w-3xl py-4 flex gap-2 items-end">
+      <footer className="border-t border-border bg-background sticky bottom-0">
+        <div className="container max-w-3xl py-3 flex gap-2 items-end">
           <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
             placeholder={`Message ${character.name}...`}
             rows={1}
-            className="min-h-[48px] max-h-32 resize-none bg-card"
+            className="min-h-[44px] max-h-32 resize-none"
             disabled={sending}
           />
-          <Button onClick={send} disabled={sending || !input.trim()} size="icon" className="gradient-bg text-primary-foreground border-0 h-12 w-12 shrink-0">
-            {sending ? <Sparkles className="h-5 w-5 animate-pulse" /> : <Send className="h-5 w-5" />}
+          <Button onClick={send} disabled={sending || !input.trim()} size="icon" className="h-11 w-11 shrink-0">
+            {sending ? <Sparkles className="h-4 w-4 animate-pulse" /> : <Send className="h-4 w-4" />}
           </Button>
         </div>
+        <p className="text-[10px] text-muted-foreground text-center pb-2 px-3">
+          Format: (Name); "speak" · *act* · **think** · ((narrator))
+        </p>
       </footer>
     </div>
   );
