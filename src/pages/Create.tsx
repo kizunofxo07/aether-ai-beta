@@ -1,132 +1,200 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Upload, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useAuth } from "@/lib/auth";
+import { CATEGORIES, TAG_LIBRARY } from "@/lib/categories";
+import { Layout } from "@/components/Layout";
 import { toast } from "sonner";
 import { z } from "zod";
 
 const schema = z.object({
-  name: z.string().trim().min(1, "Name required").max(60),
-  description: z.string().trim().min(1, "Description required").max(500),
-  greeting: z.string().trim().min(1, "Greeting required").max(500),
-  system_prompt: z.string().trim().min(20, "Prompt must be at least 20 chars").max(4000),
-  tags: z.string().max(200),
+  name: z.string().trim().min(1).max(60),
+  description: z.string().trim().min(1).max(500),
+  greeting: z.string().trim().min(1).max(500),
+  system_prompt: z.string().trim().min(20).max(4000),
 });
 
-const Create = () => {
+const CreateOrEdit = () => {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ name: "", description: "", greeting: "Hi there!", system_prompt: "", tags: "" });
+  const { id } = useParams();
+  const editing = Boolean(id);
+  const { user, roles, loading } = useAuth();
+  const [form, setForm] = useState({
+    name: "", description: "", greeting: "Hi there!", system_prompt: "",
+    category: "Other", visibility: "public" as "public" | "unlisted" | "private",
+    censorship_level: "moderate" as "none"|"light"|"moderate"|"high"|"higher",
+    tags: [] as string[], avatar_url: null as string | null,
+  });
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [parentalUnlocked, setParentalUnlocked] = useState(false);
+
+  const isStaff = roles.some((r) => ["owner","admin","moderator","staff"].includes(r));
+
+  useEffect(() => {
+    if (!editing || !id) return;
+    supabase.from("characters").select("*").eq("id", id).maybeSingle().then(({ data }) => {
+      if (!data) { navigate("/"); return; }
+      setForm({
+        name: data.name, description: data.description, greeting: data.greeting,
+        system_prompt: data.system_prompt, category: data.category,
+        visibility: data.visibility, censorship_level: data.censorship_level,
+        tags: data.tags ?? [], avatar_url: data.avatar_url,
+      });
+      setAvatarPreview(data.avatar_url);
+    });
+  }, [id, editing, navigate]);
+
+  useEffect(() => {
+    if (!loading && !user) navigate("/auth");
+  }, [user, loading, navigate]);
 
   const onFile = (f: File | null) => {
     setAvatarFile(f);
-    setAvatarPreview(f ? URL.createObjectURL(f) : null);
+    setAvatarPreview(f ? URL.createObjectURL(f) : form.avatar_url);
+  };
+
+  const toggleTag = (t: string) => {
+    setForm((f) => ({ ...f, tags: f.tags.includes(t) ? f.tags.filter((x) => x !== t) : [...f.tags, t].slice(0, 6) }));
   };
 
   const submit = async () => {
     const parsed = schema.safeParse(form);
     if (!parsed.success) { toast.error(parsed.error.issues[0].message); return; }
+    if (!user) return;
     setSubmitting(true);
     try {
-      let avatar_url: string | null = null;
+      let avatar_url = form.avatar_url;
       if (avatarFile) {
-        const path = `${crypto.randomUUID()}-${avatarFile.name.replace(/[^\w.-]/g, "_")}`;
+        const path = `${user.id}/${crypto.randomUUID()}-${avatarFile.name.replace(/[^\w.-]/g, "_")}`;
         const { error: upErr } = await supabase.storage.from("avatars").upload(path, avatarFile);
         if (upErr) throw upErr;
         avatar_url = supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl;
       }
-      const tags = form.tags.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean).slice(0, 6);
-      const { data, error } = await supabase.from("characters").insert({
-        name: form.name.trim(),
-        description: form.description.trim(),
-        greeting: form.greeting.trim(),
-        system_prompt: form.system_prompt.trim(),
-        tags,
-        avatar_url,
-      }).select("id").single();
-      if (error) throw error;
-      toast.success("Character created!");
-      navigate(`/chat/${data.id}`);
+
+      const payload: any = {
+        name: form.name.trim(), description: form.description.trim(),
+        greeting: form.greeting.trim(), system_prompt: form.system_prompt.trim(),
+        tags: form.tags, avatar_url, category: form.category,
+        visibility: form.visibility, censorship_level: form.censorship_level,
+      };
+
+      if (editing && id) {
+        const { error } = await supabase.from("characters").update(payload).eq("id", id);
+        if (error) throw error;
+        toast.success("Updated");
+        navigate(`/chat/${id}`);
+      } else {
+        payload.owner_id = user.id;
+        const { data, error } = await supabase.from("characters").insert(payload).select("id").single();
+        if (error) throw error;
+        toast.success("Character created!");
+        navigate(`/chat/${data.id}`);
+      }
     } catch (e: any) {
-      toast.error(e?.message ?? "Failed to create");
+      toast.error(e?.message ?? "Failed");
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen">
-      <header className="border-b border-border/50 backdrop-blur-md sticky top-0 z-10 bg-background/60">
-        <div className="container flex items-center gap-3 py-4">
-          <Link to="/"><Button variant="ghost" size="icon"><ArrowLeft className="h-5 w-5" /></Button></Link>
-          <h1 className="font-bold text-lg">Create a Character</h1>
-        </div>
-      </header>
+    <Layout>
+      <div className="container max-w-2xl py-8">
+        <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"><ArrowLeft className="h-4 w-4" /> Back</Link>
+        <h1 className="text-2xl font-semibold mb-6">{editing ? "Edit character" : "Create character"}</h1>
 
-      <main className="container max-w-2xl py-10 space-y-6">
-        <div className="text-center mb-4">
-          <Sparkles className="h-10 w-10 mx-auto text-primary mb-3" />
-          <h2 className="text-3xl font-bold gradient-text mb-2">Forge a soul</h2>
-          <p className="text-muted-foreground">Define a personality. The system prompt is the heart — it shapes every word they say.</p>
-        </div>
-
-        <div className="card-gradient rounded-2xl p-6 border border-border/50 space-y-5 shadow-card">
+        <div className="bg-card border border-border rounded-lg p-6 space-y-5">
           <div>
             <Label>Avatar</Label>
             <div className="flex items-center gap-4 mt-2">
-              <div className="h-20 w-20 rounded-2xl gradient-bg flex items-center justify-center overflow-hidden">
-                {avatarPreview ? <img src={avatarPreview} className="h-full w-full object-cover" alt="" /> : <Upload className="h-7 w-7 text-primary-foreground" />}
+              <div className="h-20 w-20 rounded-md bg-secondary flex items-center justify-center overflow-hidden">
+                {avatarPreview ? <img src={avatarPreview} className="h-full w-full object-cover" alt="" /> : <Upload className="h-6 w-6 opacity-60" />}
               </div>
-              <Input type="file" accept="image/*" onChange={(e) => onFile(e.target.files?.[0] ?? null)} className="bg-secondary" />
+              <Input type="file" accept="image/*" onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
+            </div>
+          </div>
+
+          <div><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Captain Vesper" /></div>
+          <div><Label>Short description</Label><Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
+          <div><Label>Opening greeting</Label><Input value={form.greeting} onChange={(e) => setForm({ ...form, greeting: e.target.value })} /></div>
+
+          <div>
+            <Label>System prompt — the soul</Label>
+            <Textarea value={form.system_prompt} onChange={(e) => setForm({ ...form, system_prompt: e.target.value })} rows={8} className="font-mono text-sm" />
+            <p className="text-xs text-muted-foreground mt-1">Memorized throughout every chat.</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Category</Label>
+              <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Visibility</Label>
+              <Select value={form.visibility} onValueChange={(v: any) => setForm({ ...form, visibility: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="public">Public — listed in catalog</SelectItem>
+                  <SelectItem value="unlisted">Unlisted — only with link</SelectItem>
+                  <SelectItem value="private">Private — only you</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
           <div>
-            <Label htmlFor="name">Name</Label>
-            <Input id="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Captain Vesper" className="bg-secondary mt-1" />
+            <Label>Censorship level</Label>
+            <Select value={form.censorship_level} onValueChange={(v: any) => setForm({ ...form, censorship_level: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None</SelectItem>
+                <SelectItem value="light">Light</SelectItem>
+                <SelectItem value="moderate">Moderate</SelectItem>
+                <SelectItem value="high" disabled={!parentalUnlocked && !isStaff}>High {(!parentalUnlocked && !isStaff) && "(parental control required)"}</SelectItem>
+                <SelectItem value="higher">Higher (children-safe)</SelectItem>
+              </SelectContent>
+            </Select>
+            {!isStaff && (
+              <button type="button" onClick={() => {
+                const pw = prompt("Enter parental control password (set in Settings):");
+                if (!pw) return;
+                const stored = localStorage.getItem("aether_parental_pw") || "";
+                if (pw === stored) { setParentalUnlocked(true); toast.success("Unlocked High level"); }
+                else toast.error("Wrong password");
+              }} className="text-xs text-muted-foreground hover:text-foreground mt-1">Unlock High via parental password</button>
+            )}
           </div>
 
           <div>
-            <Label htmlFor="desc">Short description</Label>
-            <Input id="desc" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="A weary space pirate with a heart of gold." className="bg-secondary mt-1" />
+            <Label>Tags ({form.tags.length}/6)</Label>
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {TAG_LIBRARY.map((t) => (
+                <button key={t} type="button" onClick={() => toggleTag(t)}
+                  className={`px-2 py-0.5 rounded text-xs border ${form.tags.includes(t) ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-secondary"}`}>
+                  {t}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div>
-            <Label htmlFor="greet">Opening line</Label>
-            <Input id="greet" value={form.greeting} onChange={(e) => setForm({ ...form, greeting: e.target.value })} placeholder="Welcome aboard, stranger..." className="bg-secondary mt-1" />
-          </div>
-
-          <div>
-            <Label htmlFor="prompt">System prompt — the soul</Label>
-            <Textarea
-              id="prompt"
-              value={form.system_prompt}
-              onChange={(e) => setForm({ ...form, system_prompt: e.target.value })}
-              placeholder="You are Captain Vesper, a 38-year-old space pirate from the outer rim. You speak with a gravelly voice, drop nautical metaphors, distrust corporations, but secretly help orphans. Stay in character at all times. Never break the fourth wall."
-              rows={8}
-              className="bg-secondary mt-1 font-mono text-sm"
-            />
-            <p className="text-xs text-muted-foreground mt-1">This is memorized for the entire conversation. Be specific about tone, backstory, quirks, and rules.</p>
-          </div>
-
-          <div>
-            <Label htmlFor="tags">Tags (comma separated)</Label>
-            <Input id="tags" value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} placeholder="scifi, roleplay, pirate" className="bg-secondary mt-1" />
-          </div>
-
-          <Button onClick={submit} disabled={submitting} className="w-full h-12 gradient-bg text-primary-foreground border-0 hover:opacity-90">
-            {submitting ? "Forging..." : "Bring to life"}
+          <Button onClick={submit} disabled={submitting} className="w-full">
+            {submitting ? "Saving..." : editing ? "Save changes" : "Create"}
           </Button>
         </div>
-      </main>
-    </div>
+      </div>
+    </Layout>
   );
 };
 
-export default Create;
+export default CreateOrEdit;
