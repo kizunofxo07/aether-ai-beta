@@ -20,7 +20,8 @@ const Settings = () => {
 
   const [lang, setLangState] = useState(getLang());
   const [translateOn, setTranslateOn] = useState(getTranslateEnabled());
-  const [apiKey, setApiKey] = useState(getOpenAIKey());
+  const [promoCode, setPromoCode] = useState("");
+  const [redeeming, setRedeeming] = useState(false);
 
   // profile fields
   const [username, setUsername] = useState("");
