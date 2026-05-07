@@ -10,7 +10,7 @@ import Create from "./pages/Create";
 import Auth from "./pages/Auth";
 import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
-import Staff from "./pages/Staff";
+import Support from "./pages/Support";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
