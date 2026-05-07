@@ -50,11 +50,9 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
           <NavLink to="/settings" onClick={() => setOpen(false)} className={({isActive}) => `flex items-center gap-2 px-3 py-2 rounded-md text-sm hover:bg-sidebar-accent ${isActive ? "bg-sidebar-accent" : ""}`}>
             <Settings className="h-4 w-4" /><T>Settings</T>
           </NavLink>
-          {isStaff && (
-            <NavLink to="/staff" onClick={() => setOpen(false)} className={({isActive}) => `flex items-center gap-2 px-3 py-2 rounded-md text-sm hover:bg-sidebar-accent ${isActive ? "bg-sidebar-accent" : ""}`}>
-              <Shield className="h-4 w-4 text-gold" /><T>Staff</T>
-            </NavLink>
-          )}
+          <NavLink to="/support" onClick={() => setOpen(false)} className={({isActive}) => `flex items-center gap-2 px-3 py-2 rounded-md text-sm hover:bg-sidebar-accent ${isActive ? "bg-sidebar-accent" : ""}`}>
+            <LifeBuoy className="h-4 w-4" /><T>Support</T>
+          </NavLink>
         </div>
 
         {user && (
