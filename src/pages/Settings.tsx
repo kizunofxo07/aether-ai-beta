@@ -167,9 +167,17 @@ const Settings = () => {
         {/* Plan */}
         <div className="bg-card border border-border rounded-lg p-5 space-y-3">
           <h2 className="font-semibold">Plan</h2>
-          <p className="text-sm">Current: <span className={profile?.plan === "nether" ? "text-nether font-semibold" : ""}>{profile?.plan === "nether" ? "Nether" : "Free"}</span></p>
-          {profile?.plan !== "nether" && (
-            <Button variant="outline" disabled>Upgrade to Nether — payment coming soon</Button>
+          <p className="text-sm">Current: <span className={profile?.plan === "nether" ? "text-nether font-semibold" : ""}>{profile?.plan === "nether" ? "Nether ✨" : "Free"}</span></p>
+          {profile?.plan !== "nether" ? (
+            <>
+              <p className="text-xs text-muted-foreground">Nether unlocks animated avatars, image backgrounds and gold profile flair. Activate with a code from staff or Discord.</p>
+              <div className="flex gap-2">
+                <Input value={promoCode} onChange={(e) => setPromoCode(e.target.value)} placeholder="Promo code (e.g. NETHER-XXXX)" />
+                <Button onClick={redeem} disabled={redeeming || !promoCode.trim()}>{redeeming ? "..." : "Redeem"}</Button>
+              </div>
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground">All Nether perks are active. Thank you for supporting Æther.</p>
           )}
         </div>
 
