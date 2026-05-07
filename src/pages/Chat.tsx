@@ -1,18 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
-import { ArrowLeft, Send, Sparkles, Brain, Pencil } from "lucide-react";
+import { ArrowLeft, Send, Sparkles, Brain, Pencil, ImagePlus, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { getSessionId } from "@/lib/session";
 import { useAuth } from "@/lib/auth";
-import { getOpenAIKey } from "@/lib/byok";
 import { translate, getLang, getTranslateEnabled, onLangChange } from "@/lib/i18n";
+import { CHAT_OPENERS } from "@/lib/templates";
 import { toast } from "sonner";
 
 type Character = { id: string; name: string; description: string; avatar_url: string | null; greeting: string; owner_id: string | null; is_owner_official: boolean; visibility: string };
-type Msg = { role: "user" | "assistant"; content: string; translated?: string };
+type Msg = { role: "user" | "assistant"; content: string; translated?: string; image_url?: string | null };
 
 const Chat = () => {
   const { characterId } = useParams();
@@ -24,7 +24,9 @@ const Chat = () => {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [memoryCount, setMemoryCount] = useState(0);
+  const [pendingImage, setPendingImage] = useState<{ file: File; preview: string } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!characterId) return;
@@ -59,7 +61,6 @@ const Chat = () => {
     })();
   }, [characterId, navigate, user]);
 
-  // re-translate on lang change
   useEffect(() => {
     const run = async () => {
       if (!getTranslateEnabled() || getLang() === "en") {
@@ -79,16 +80,36 @@ const Chat = () => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
-  const send = async () => {
-    if (!input.trim() || sending || !conversationId || !characterId) return;
-    const text = input.trim();
+  const pickImage = (f: File | null) => {
+    if (!f) return;
+    if (f.size > 8 * 1024 * 1024) { toast.error("Image too large (max 8MB)"); return; }
+    setPendingImage({ file: f, preview: URL.createObjectURL(f) });
+  };
+
+  const uploadImage = async (file: File): Promise<string | null> => {
+    const sessionId = user?.id ?? getSessionId();
+    const path = `${sessionId}/${crypto.randomUUID()}-${file.name.replace(/[^\w.-]/g, "_")}`;
+    const { error } = await supabase.storage.from("chat-images").upload(path, file);
+    if (error) { toast.error(error.message); return null; }
+    return supabase.storage.from("chat-images").getPublicUrl(path).data.publicUrl;
+  };
+
+  const send = async (overrideText?: string) => {
+    const text = (overrideText ?? input).trim();
+    if ((!text && !pendingImage) || sending || !conversationId || !characterId) return;
     setInput("");
-    setMessages((m) => [...m, { role: "user", content: text }, { role: "assistant", content: "..." }]);
+    let imageUrl: string | null = null;
+    if (pendingImage) {
+      imageUrl = await uploadImage(pendingImage.file);
+      setPendingImage(null);
+    }
+    const displayed = text || (imageUrl ? "*sent an image*" : "");
+    setMessages((m) => [...m, { role: "user", content: displayed, image_url: imageUrl }, { role: "assistant", content: "..." }]);
     setSending(true);
 
     try {
       const { data, error } = await supabase.functions.invoke("chat", {
-        body: { conversationId, characterId, sessionId: getSessionId(), userMessage: text, openaiKey: getOpenAIKey() },
+        body: { conversationId, characterId, sessionId: getSessionId(), userMessage: text, imageUrl },
       });
       if (error) throw error;
       if (data?.error) {
@@ -111,6 +132,7 @@ const Chat = () => {
   if (!character) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
 
   const canEdit = user && character.owner_id === user.id;
+  const showOpeners = messages.length <= 1;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -139,29 +161,58 @@ const Chat = () => {
               <div className={`max-w-[85%] rounded-lg px-4 py-2.5 ${
                 m.role === "user" ? "bg-primary text-primary-foreground" : "bg-card border border-border"
               }`}>
+                {m.image_url && <img src={m.image_url} alt="" className="rounded mb-2 max-h-72" />}
                 <div className="prose prose-sm prose-invert max-w-none text-sm leading-relaxed [&_p]:my-1 whitespace-pre-wrap">
                   <ReactMarkdown>{m.translated ?? m.content}</ReactMarkdown>
                 </div>
               </div>
             </div>
           ))}
+
+          {showOpeners && (
+            <div className="pt-4">
+              <p className="text-xs text-muted-foreground mb-2">Try one:</p>
+              <div className="flex flex-wrap gap-2">
+                {CHAT_OPENERS.map((o) => (
+                  <button key={o.label} onClick={() => send(o.text)}
+                    className="text-xs px-3 py-1.5 rounded-full border border-border hover:bg-secondary">
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </main>
 
       <footer className="border-t border-border bg-background sticky bottom-0">
-        <div className="container max-w-3xl py-3 flex gap-2 items-end">
-          <Textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-            placeholder={`Message ${character.name}...`}
-            rows={1}
-            className="min-h-[44px] max-h-32 resize-none"
-            disabled={sending}
-          />
-          <Button onClick={send} disabled={sending || !input.trim()} size="icon" className="h-11 w-11 shrink-0">
-            {sending ? <Sparkles className="h-4 w-4 animate-pulse" /> : <Send className="h-4 w-4" />}
-          </Button>
+        <div className="container max-w-3xl py-3">
+          {pendingImage && (
+            <div className="mb-2 inline-flex items-center gap-2 bg-secondary rounded-md p-1.5">
+              <img src={pendingImage.preview} alt="" className="h-12 w-12 object-cover rounded" />
+              <button onClick={() => setPendingImage(null)} className="text-muted-foreground hover:text-foreground">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+          <div className="flex gap-2 items-end">
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => pickImage(e.target.files?.[0] ?? null)} />
+            <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" onClick={() => fileRef.current?.click()} disabled={sending}>
+              <ImagePlus className="h-5 w-5" />
+            </Button>
+            <Textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+              placeholder={`Message ${character.name}...`}
+              rows={1}
+              className="min-h-[44px] max-h-32 resize-none"
+              disabled={sending}
+            />
+            <Button onClick={() => send()} disabled={sending || (!input.trim() && !pendingImage)} size="icon" className="h-11 w-11 shrink-0">
+              {sending ? <Sparkles className="h-4 w-4 animate-pulse" /> : <Send className="h-4 w-4" />}
+            </Button>
+          </div>
         </div>
         <p className="text-[10px] text-muted-foreground text-center pb-2 px-3">
           Format: (Name); "speak" · *act* · **think** · ((narrator))
