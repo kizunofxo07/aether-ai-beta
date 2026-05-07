@@ -97,7 +97,20 @@ const Settings = () => {
 
   const applyLang = (v: string) => { setLangState(v); setLang(v); };
   const applyTranslate = (v: boolean) => { setTranslateOn(v); setTranslateEnabled(v); };
-  const saveKey = () => { setOpenAIKey(apiKey); toast.success(apiKey ? "API key saved (this browser only)" : "API key cleared"); };
+  const redeem = async () => {
+    if (!promoCode.trim() || !user) return;
+    setRedeeming(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("redeem-nether", { body: { code: promoCode.trim() } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success("Nether unlocked! ✨");
+      setPromoCode("");
+      await refreshProfile();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Invalid code");
+    } finally { setRedeeming(false); }
+  };
 
   return (
     <Layout>
