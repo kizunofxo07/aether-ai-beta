@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/lib/auth";
 import { CATEGORIES, TAG_LIBRARY } from "@/lib/categories";
+import { CHARACTER_TEMPLATES } from "@/lib/templates";
 import { Layout } from "@/components/Layout";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -110,6 +111,29 @@ const CreateOrEdit = () => {
       <div className="container max-w-2xl py-8">
         <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"><ArrowLeft className="h-4 w-4" /> Back</Link>
         <h1 className="text-2xl font-semibold mb-6">{editing ? "Edit character" : "Create character"}</h1>
+
+        {!editing && (
+          <div className="bg-card border border-border rounded-lg p-4 mb-4">
+            <h2 className="text-sm font-semibold mb-2">Start from a template</h2>
+            <div className="flex flex-wrap gap-2">
+              {CHARACTER_TEMPLATES.map((t) => (
+                <button key={t.id} type="button" onClick={() => setForm((f) => ({
+                  ...f,
+                  name: t.name || f.name,
+                  description: t.description || f.description,
+                  greeting: t.greeting,
+                  system_prompt: t.system_prompt,
+                  category: t.category,
+                  tags: t.tags,
+                }))}
+                  className="text-xs px-3 py-1.5 rounded-full border border-border hover:bg-secondary">
+                  {t.id === "blank" ? "Blank" : t.name}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-2">Templates fill the fields below — you can tweak everything before saving.</p>
+          </div>
+        )}
 
         <div className="bg-card border border-border rounded-lg p-6 space-y-5">
           <div>

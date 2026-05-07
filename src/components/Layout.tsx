@@ -1,6 +1,6 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { Sparkles, Plus, Settings, LogIn, LogOut, User as UserIcon, MessageSquare, Shield } from "lucide-react";
+import { Sparkles, Plus, Settings, LogIn, LogOut, User as UserIcon, MessageSquare, LifeBuoy } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,6 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   }, [user]);
 
   const isOwner = roles.includes("owner");
-  const isStaff = roles.some((r) => ["owner","admin","moderator","staff"].includes(r));
 
   return (
     <div className="min-h-screen flex">
@@ -50,11 +49,9 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
           <NavLink to="/settings" onClick={() => setOpen(false)} className={({isActive}) => `flex items-center gap-2 px-3 py-2 rounded-md text-sm hover:bg-sidebar-accent ${isActive ? "bg-sidebar-accent" : ""}`}>
             <Settings className="h-4 w-4" /><T>Settings</T>
           </NavLink>
-          {isStaff && (
-            <NavLink to="/staff" onClick={() => setOpen(false)} className={({isActive}) => `flex items-center gap-2 px-3 py-2 rounded-md text-sm hover:bg-sidebar-accent ${isActive ? "bg-sidebar-accent" : ""}`}>
-              <Shield className="h-4 w-4 text-gold" /><T>Staff</T>
-            </NavLink>
-          )}
+          <NavLink to="/support" onClick={() => setOpen(false)} className={({isActive}) => `flex items-center gap-2 px-3 py-2 rounded-md text-sm hover:bg-sidebar-accent ${isActive ? "bg-sidebar-accent" : ""}`}>
+            <LifeBuoy className="h-4 w-4" /><T>Support</T>
+          </NavLink>
         </div>
 
         {user && (

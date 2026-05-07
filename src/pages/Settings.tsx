@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { LANGUAGES, getLang, getTranslateEnabled, setLang, setTranslateEnabled } from "@/lib/i18n";
-import { getOpenAIKey, setOpenAIKey } from "@/lib/byok";
+
 import { toast } from "sonner";
 
 const Settings = () => {
@@ -20,7 +20,8 @@ const Settings = () => {
 
   const [lang, setLangState] = useState(getLang());
   const [translateOn, setTranslateOn] = useState(getTranslateEnabled());
-  const [apiKey, setApiKey] = useState(getOpenAIKey());
+  const [promoCode, setPromoCode] = useState("");
+  const [redeeming, setRedeeming] = useState(false);
 
   // profile fields
   const [username, setUsername] = useState("");
@@ -96,7 +97,20 @@ const Settings = () => {
 
   const applyLang = (v: string) => { setLangState(v); setLang(v); };
   const applyTranslate = (v: boolean) => { setTranslateOn(v); setTranslateEnabled(v); };
-  const saveKey = () => { setOpenAIKey(apiKey); toast.success(apiKey ? "API key saved (this browser only)" : "API key cleared"); };
+  const redeem = async () => {
+    if (!promoCode.trim() || !user) return;
+    setRedeeming(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("redeem-nether", { body: { code: promoCode.trim() } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success("Nether unlocked! ✨");
+      setPromoCode("");
+      await refreshProfile();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Invalid code");
+    } finally { setRedeeming(false); }
+  };
 
   return (
     <Layout>
@@ -120,13 +134,6 @@ const Settings = () => {
           </div>
         </div>
 
-        {/* API key */}
-        <div className="bg-card border border-border rounded-lg p-5 space-y-3">
-          <h2 className="font-semibold">OpenAI API key (BYOK)</h2>
-          <p className="text-xs text-muted-foreground">Optional. Stored only in your browser. If empty, Æther uses the built-in free gateway.</p>
-          <Input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-..." />
-          <Button size="sm" onClick={saveKey}>Save key</Button>
-        </div>
 
         {/* Profile */}
         <div className="bg-card border border-border rounded-lg p-5 space-y-4">
@@ -160,16 +167,24 @@ const Settings = () => {
         {/* Plan */}
         <div className="bg-card border border-border rounded-lg p-5 space-y-3">
           <h2 className="font-semibold">Plan</h2>
-          <p className="text-sm">Current: <span className={profile?.plan === "nether" ? "text-nether font-semibold" : ""}>{profile?.plan === "nether" ? "Nether" : "Free"}</span></p>
-          {profile?.plan !== "nether" && (
-            <Button variant="outline" disabled>Upgrade to Nether — payment coming soon</Button>
+          <p className="text-sm">Current: <span className={profile?.plan === "nether" ? "text-nether font-semibold" : ""}>{profile?.plan === "nether" ? "Nether ✨" : "Free"}</span></p>
+          {profile?.plan !== "nether" ? (
+            <>
+              <p className="text-xs text-muted-foreground">Nether unlocks animated avatars, image backgrounds and gold profile flair. Activate with a code from staff or Discord.</p>
+              <div className="flex gap-2">
+                <Input value={promoCode} onChange={(e) => setPromoCode(e.target.value)} placeholder="Promo code (e.g. NETHER-XXXX)" />
+                <Button onClick={redeem} disabled={redeeming || !promoCode.trim()}>{redeeming ? "..." : "Redeem"}</Button>
+              </div>
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground">All Nether perks are active. Thank you for supporting Æther.</p>
           )}
         </div>
 
         <Button onClick={saveProfile} className="w-full">Save profile</Button>
 
         <div className="text-center text-xs text-muted-foreground pt-4">
-          Contact: torajoazul3@gmail.com · <a className="underline hover:text-foreground" href="https://discord.gg/" target="_blank" rel="noreferrer">Discord</a>
+          Contact: torajoazul3@gmail.com · <a className="underline hover:text-foreground" href="https://discord.gg/mXVeEJdW" target="_blank" rel="noreferrer">Discord</a>
         </div>
       </div>
     </Layout>
