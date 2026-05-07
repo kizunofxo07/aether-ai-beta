@@ -25,7 +25,6 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   }, [user]);
 
   const isOwner = roles.includes("owner");
-  const isStaff = roles.some((r) => ["owner","admin","moderator","staff"].includes(r));
 
   return (
     <div className="min-h-screen flex">
