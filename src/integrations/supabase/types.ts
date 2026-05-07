@@ -44,6 +44,13 @@ export type Database = {
             referencedRelation: "characters"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "character_memory_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "public_characters"
+            referencedColumns: ["id"]
+          },
         ]
       }
       characters: {
@@ -106,6 +113,13 @@ export type Database = {
             referencedRelation: "characters"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "characters_is_remix_of_fkey"
+            columns: ["is_remix_of"]
+            isOneToOne: false
+            referencedRelation: "public_characters"
+            referencedColumns: ["id"]
+          },
         ]
       }
       conversations: {
@@ -139,6 +153,13 @@ export type Database = {
             columns: ["character_id"]
             isOneToOne: false
             referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "public_characters"
             referencedColumns: ["id"]
           },
         ]
@@ -274,6 +295,13 @@ export type Database = {
             referencedRelation: "characters"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "remix_requests_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "public_characters"
+            referencedColumns: ["id"]
+          },
         ]
       }
       staff_content: {
@@ -323,7 +351,117 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      public_characters: {
+        Row: {
+          avatar_url: string | null
+          category: string | null
+          censorship_level:
+            | Database["public"]["Enums"]["censorship_level"]
+            | null
+          created_at: string | null
+          description: string | null
+          greeting: string | null
+          id: string | null
+          is_official: boolean | null
+          is_owner_official: boolean | null
+          is_remix_of: string | null
+          name: string | null
+          owner_id: string | null
+          tags: string[] | null
+          visibility: Database["public"]["Enums"]["bot_visibility"] | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          category?: string | null
+          censorship_level?:
+            | Database["public"]["Enums"]["censorship_level"]
+            | null
+          created_at?: string | null
+          description?: string | null
+          greeting?: string | null
+          id?: string | null
+          is_official?: boolean | null
+          is_owner_official?: boolean | null
+          is_remix_of?: string | null
+          name?: string | null
+          owner_id?: string | null
+          tags?: string[] | null
+          visibility?: Database["public"]["Enums"]["bot_visibility"] | null
+        }
+        Update: {
+          avatar_url?: string | null
+          category?: string | null
+          censorship_level?:
+            | Database["public"]["Enums"]["censorship_level"]
+            | null
+          created_at?: string | null
+          description?: string | null
+          greeting?: string | null
+          id?: string | null
+          is_official?: boolean | null
+          is_owner_official?: boolean | null
+          is_remix_of?: string | null
+          name?: string | null
+          owner_id?: string | null
+          tags?: string[] | null
+          visibility?: Database["public"]["Enums"]["bot_visibility"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "characters_is_remix_of_fkey"
+            columns: ["is_remix_of"]
+            isOneToOne: false
+            referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "characters_is_remix_of_fkey"
+            columns: ["is_remix_of"]
+            isOneToOne: false
+            referencedRelation: "public_characters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      public_profiles: {
+        Row: {
+          avatar_url: string | null
+          background_color: string | null
+          background_image_url: string | null
+          created_at: string | null
+          description: string | null
+          display_name: string | null
+          is_public: boolean | null
+          plan: Database["public"]["Enums"]["user_plan"] | null
+          user_id: string | null
+          username: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          background_color?: string | null
+          background_image_url?: string | null
+          created_at?: string | null
+          description?: string | null
+          display_name?: string | null
+          is_public?: boolean | null
+          plan?: Database["public"]["Enums"]["user_plan"] | null
+          user_id?: string | null
+          username?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          background_color?: string | null
+          background_image_url?: string | null
+          created_at?: string | null
+          description?: string | null
+          display_name?: string | null
+          is_public?: boolean | null
+          plan?: Database["public"]["Enums"]["user_plan"] | null
+          user_id?: string | null
+          username?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_role: {
