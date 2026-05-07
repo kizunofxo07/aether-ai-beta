@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/lib/auth";
 import { CATEGORIES, TAG_LIBRARY } from "@/lib/categories";
+import { CHARACTER_TEMPLATES } from "@/lib/templates";
 import { Layout } from "@/components/Layout";
 import { toast } from "sonner";
 import { z } from "zod";
