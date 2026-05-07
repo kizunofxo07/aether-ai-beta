@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { LANGUAGES, getLang, getTranslateEnabled, setLang, setTranslateEnabled } from "@/lib/i18n";
-import { getOpenAIKey, setOpenAIKey } from "@/lib/byok";
+
 import { toast } from "sonner";
 
 const Settings = () => {
