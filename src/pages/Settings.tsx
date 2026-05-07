@@ -134,13 +134,6 @@ const Settings = () => {
           </div>
         </div>
 
-        {/* API key */}
-        <div className="bg-card border border-border rounded-lg p-5 space-y-3">
-          <h2 className="font-semibold">OpenAI API key (BYOK)</h2>
-          <p className="text-xs text-muted-foreground">Optional. Stored only in your browser. If empty, Æther uses the built-in free gateway.</p>
-          <Input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-..." />
-          <Button size="sm" onClick={saveKey}>Save key</Button>
-        </div>
 
         {/* Profile */}
         <div className="bg-card border border-border rounded-lg p-5 space-y-4">
