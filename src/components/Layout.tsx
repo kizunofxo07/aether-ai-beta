@@ -1,6 +1,6 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { Sparkles, Plus, Settings, LogIn, LogOut, User as UserIcon, MessageSquare, Shield } from "lucide-react";
+import { Sparkles, Plus, Settings, LogIn, LogOut, User as UserIcon, MessageSquare, LifeBuoy } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
