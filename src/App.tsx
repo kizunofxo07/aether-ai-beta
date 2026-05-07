@@ -30,7 +30,7 @@ const App = () => (
             <Route path="/chat/:characterId" element={<Chat />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/profile" element={<Profile />} />
-            <Route path="/staff" element={<Staff />} />
+            <Route path="/support" element={<Support />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
