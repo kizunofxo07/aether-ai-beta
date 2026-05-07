@@ -20,7 +20,7 @@ const Index = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.from("characters").select("*").eq("visibility", "public")
+    (supabase.from("public_characters" as any) as any).select("*").eq("visibility", "public")
       .order("is_owner_official", { ascending: false })
       .order("created_at", { ascending: false })
       .then(({ data }) => { setChars((data as Character[]) ?? []); setLoading(false); });

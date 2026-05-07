@@ -13,7 +13,7 @@ const Profile = () => {
 
   useEffect(() => {
     if (!user) return;
-    supabase.from("characters").select("id,name,avatar_url,visibility,category,is_owner_official")
+    (supabase.from("public_characters" as any) as any).select("id,name,avatar_url,visibility,category,is_owner_official")
       .eq("owner_id", user.id).order("created_at", { ascending: false })
       .then(({ data }) => setChars((data as C[]) ?? []));
   }, [user]);
