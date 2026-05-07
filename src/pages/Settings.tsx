@@ -184,7 +184,7 @@ const Settings = () => {
         <Button onClick={saveProfile} className="w-full">Save profile</Button>
 
         <div className="text-center text-xs text-muted-foreground pt-4">
-          Contact: torajoazul3@gmail.com · <a className="underline hover:text-foreground" href="https://discord.gg/" target="_blank" rel="noreferrer">Discord</a>
+          Contact: torajoazul3@gmail.com · <a className="underline hover:text-foreground" href="https://discord.gg/mXVeEJdW" target="_blank" rel="noreferrer">Discord</a>
         </div>
       </div>
     </Layout>
